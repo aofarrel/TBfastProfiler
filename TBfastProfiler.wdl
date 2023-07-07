@@ -106,7 +106,7 @@ task main {
         Int    total_reads = read_int("total_reads.txt")
         
         # important metrics as string with sample name (useful if concatenating results from many samples)
-        # terra doesn't support outputs pased on other outputs, so we have to read the files twice
+        # terra doesn't support outputs passed on other outputs, so we have to read the files twice
         String samp_median_depth = "~{sample_name}\t" + read_string("depth.txt")
         String samp_percent_above_q30 = "~{sample_name}\t" + read_string("q30.txt")
         String samp_resistance = "~{sample_name}\t" + read_string("resistance.txt")
