@@ -4,12 +4,31 @@ workflow TBfastProfiler {
     input {
         File fastq1
         File fastq2
+        
+        Boolean output_fastps_cleaned_fastqs = false
+        
+        Float q30_cutoff = 0.95
     }
     
     call main {
         input:
             fastq1 = fastq1,
-            fastq2 = fastq2
+            fastq2 = fastq2,
+            output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs
+    }
+    
+    # silly workaround to avoid errors with WDL getting made about declaring the same variable multiple times
+    # (when what we actually want to do is change it if something is true)
+    Boolean always_false = false
+    if(main.percent_above_q30 > q30_cutoff) {
+        Boolean passed_q30 = true
+    }
+    Boolean outcome = select_first([passed_q30, always_false])
+    
+    output {
+        Boolean did_this_sample_pass = outcome
+        File? cleaned_fastq1 = main.very_clean_fastq1
+        File? cleaned_fastq2 = main.very_clean_fastq2
     }
 }
 
@@ -21,7 +40,7 @@ task main {
         # fastp options
         Int average_qual = 30
         #Boolean disable_adaptor_trimming = true
-        #Boolean output_fastps_cleaned_fastqs = false
+        Boolean output_fastps_cleaned_fastqs
         
         # compute setup
         Int addldisk = 15
@@ -46,29 +65,35 @@ task main {
     # This needs to be to handle inputs like sample+run+num (ERS457530_ERR551697_1.fastq)
     # or inputs like sample+num (ERS457530_1.fastq). In both cases, we want to convert to just
 	# sample name (ERS457530).
-	String read_file_basename = basename(fastq1) # used to calculate sample name + outfile_sam
+	String read_file_basename = basename(fastq1)
 	String sample_name = sub(read_file_basename, "_.*", "")
     
     command <<<    
+    set -eux pipefail
+    
     # fastp
     start=$SECONDS
-    fastp --in1 "~{fastq1}" --in2 "~{fastq2}" \
+    fastp --in1 "~{fastq1}" --in2 "~{fastq2}" --out1 "~{sample_name}_fastp_1.fq" --out2 "~{sample_name}_fastp_2.fq" \
         --average_qual ~{average_qual} \
         --html "~{sample_name}_fastp.html" --json "~{sample_name}_fastp.json"
     
     # parse fastp outputs from JSON
-    # It is very tempting to redirect fastp's stderr to a file and then parse that, since it
-    # dumps much of the information we need to sterr. But if we somehow get an error in fastp,
-    # that approach could be problematic.
     python3 << CODE
+    import os
     import json
     with open("~{sample_name}_fastp.json", "r") as fastpJSON:
         fastp = json.load(fastpJSON)
-    with open("fastp_summary.txt", "a") as outfile:
+    with open("fastp_summary.txt", "w") as outfile:
         for keys, values in fastp["summary"]["before_filtering"].items():
             outfile.write(f"{keys}\t{values}\n")
     with open("q30.txt", "w") as q30_rate: q30_rate.write(str(fastp["summary"]["before_filtering"]["q30_rate"]))
     with open("total_reads.txt", "w") as read_count: read_count.write(str(fastp["summary"]["before_filtering"]["total_reads"]))              
+    
+    # delete fastp cleaned fastqs if we dont want them to save on delocalization time
+    if "~{output_fastps_cleaned_fastqs}" == "false":
+        os.remove("~{sample_name}_fastp_1.fq")
+        os.remove("~{sample_name}_fastp_2.fq")
+    
     CODE
     echo "Finished fastp and parsing its outputs in $(( SECONDS - start ))"
 
@@ -91,7 +116,11 @@ task main {
 		preemptible: "${preempt}"
     }
     output {
-        # as file
+        # fastqs
+        File? very_clean_fastq1 = "~{sample_name}_fastp_1.fq"
+        File? very_clean_fastq2 = "~{sample_name}_fastp_2.fq"
+        
+        # reports as files
         File fastp_html = glob("*_fastp.html")[0]
         File fastp_json = glob("*_fastp.json")[0]
         File fastp_txt  = "fastp_summary.txt"
