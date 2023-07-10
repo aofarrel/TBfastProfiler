@@ -7,7 +7,7 @@ workflow TBfastProfiler {
         
         Boolean output_fastps_cleaned_fastqs = false
         
-        Float q30_cutoff = 0.95
+        Float q30_cutoff
     }
     
     call main {
