@@ -40,7 +40,7 @@ task main {
         
         # fastp options
         Int average_qual = 30
-        Boolean disable_adaptor_trimming = true
+        Boolean disable_adapter_trimming = true
         Boolean output_fastps_cleaned_fastqs
         
         # compute setup
@@ -53,7 +53,7 @@ task main {
     
     parameter_meta {
         average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement"
-        disable_adaptor_trimming: "Disable trimming adaptors; use this if your reads already went through trimmomatic"
+        disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic"
         #output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them. fastp will generate cleaned fastqs no matter what, so setting this to false will only save you on storage and delocalization costs."
     }
     
@@ -61,7 +61,7 @@ task main {
     String diskType = if((ssd)) then " SSD" else " HDD"
     
     # fastp arguments
-    String arg_adaptor_trimming = if(disable_adaptor_trimming) then "--disable_adaptor_trimming" else ""
+    String arg_adapter_trimming = if(disable_adapter_trimming) then "--disable_adapter_trimming" else ""
     
     # This needs to be to handle inputs like sample+run+num (ERS457530_ERR551697_1.fastq)
     # or inputs like sample+num (ERS457530_1.fastq). In both cases, we want to convert to just
@@ -75,7 +75,7 @@ task main {
     # fastp
     start=$SECONDS
     fastp --in1 "~{fastq1}" --in2 "~{fastq2}" --out1 "~{sample_name}_fastp_1.fq" --out2 "~{sample_name}_fastp_2.fq" \
-        --average_qual ~{average_qual} "~{arg_adaptor_trimming}" \
+        --average_qual ~{average_qual} "~{arg_adapter_trimming}" \
         --html "~{sample_name}_fastp.html" --json "~{sample_name}_fastp.json"
     
     # parse fastp outputs from JSON
