@@ -7,7 +7,7 @@ workflow TBfastProfiler {
         
         Boolean output_fastps_cleaned_fastqs = false
         
-        Float q30_cutoff = 0.05
+        Float q30_cutoff
     }
     
     call main {
@@ -28,8 +28,8 @@ workflow TBfastProfiler {
     output {
         Boolean did_this_sample_pass = outcome
         File fastp_txt = main.fastp_txt
-        File? very_clean_fastq1 = main.very_clean_fastq1
-        File? very_clean_fastq2 = main.very_clean_fastq2
+        File? cleaned_fastq1 = main.very_clean_fastq1
+        File? cleaned_fastq2 = main.very_clean_fastq2
     }
 }
 
