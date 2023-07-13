@@ -7,7 +7,7 @@ workflow TBfastProfiler {
         
         Boolean output_fastps_cleaned_fastqs = false
         
-        Float q30_cutoff
+        Float q30_cutoff = 0.05
     }
     
     call main {
@@ -27,8 +27,9 @@ workflow TBfastProfiler {
     
     output {
         Boolean did_this_sample_pass = outcome
-        File? cleaned_fastq1 = main.very_clean_fastq1
-        File? cleaned_fastq2 = main.very_clean_fastq2
+        File fastp_txt = main.fastp_txt
+        File? very_clean_fastq1 = main.very_clean_fastq1
+        File? very_clean_fastq2 = main.very_clean_fastq2
     }
 }
 
@@ -39,7 +40,7 @@ task main {
         
         # fastp options
         Int average_qual = 30
-        #Boolean disable_adaptor_trimming = true
+        Boolean disable_adaptor_trimming = true
         Boolean output_fastps_cleaned_fastqs
         
         # compute setup
@@ -52,7 +53,7 @@ task main {
     
     parameter_meta {
         average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement"
-        #disable_adaptor_trimming: "Disable trimming adaptors; use this if your reads already went through trimmomatic"
+        disable_adaptor_trimming: "Disable trimming adaptors; use this if your reads already went through trimmomatic"
         #output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them. fastp will generate cleaned fastqs no matter what, so setting this to false will only save you on storage and delocalization costs."
     }
     
@@ -60,7 +61,7 @@ task main {
     String diskType = if((ssd)) then " SSD" else " HDD"
     
     # fastp arguments
-    #String arg_adaptor_trimming = "--disable_adaptor_trimming" if disable_adaptor_trimming is true else ""
+    String arg_adaptor_trimming = if(disable_adaptor_trimming) then "--disable_adaptor_trimming" else ""
     
     # This needs to be to handle inputs like sample+run+num (ERS457530_ERR551697_1.fastq)
     # or inputs like sample+num (ERS457530_1.fastq). In both cases, we want to convert to just
@@ -74,7 +75,7 @@ task main {
     # fastp
     start=$SECONDS
     fastp --in1 "~{fastq1}" --in2 "~{fastq2}" --out1 "~{sample_name}_fastp_1.fq" --out2 "~{sample_name}_fastp_2.fq" \
-        --average_qual ~{average_qual} \
+        --average_qual ~{average_qual} "~{arg_adaptor_trimming}" \
         --html "~{sample_name}_fastp.html" --json "~{sample_name}_fastp.json"
     
     # parse fastp outputs from JSON
