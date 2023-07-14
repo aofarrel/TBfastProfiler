@@ -4,17 +4,26 @@ workflow TBfastProfiler {
     input {
         File fastq1
         File fastq2
-        
+        Int average_qual = 30
+        Boolean disable_adapter_trimming = true
         Boolean output_fastps_cleaned_fastqs = false
-        
         Float q30_cutoff
+    }
+    
+    parameter_meta {
+        average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement. Independent of q30_cutoff."
+        disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic."
+        output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them to save on storage and delocalization costs."
+        q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered failing (did_this_sample_pass output will be false)."
     }
     
     call main {
         input:
             fastq1 = fastq1,
             fastq2 = fastq2,
-            output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs
+            average_qual = average_qual,
+            disable_adapter_trimming = disable_adapter_trimming,
+            output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs,
     }
     
     # silly workaround to avoid errors with WDL getting made about declaring the same variable multiple times
@@ -26,10 +35,12 @@ workflow TBfastProfiler {
     Boolean outcome = select_first([passed_q30, always_false])
     
     output {
-        Boolean did_this_sample_pass = outcome
-        File fastp_txt = main.fastp_txt
         File? cleaned_fastq1 = main.very_clean_fastq1
         File? cleaned_fastq2 = main.very_clean_fastq2
+        Boolean did_this_sample_pass = outcome
+        File fastp_txt = main.fastp_txt
+        String samp_resistance = main.samp_resistance
+        String samp_strain = main.samp_strain
     }
 }
 
@@ -39,8 +50,8 @@ task main {
         File fastq2
         
         # fastp options
-        Int average_qual = 30
-        Boolean disable_adapter_trimming = true
+        Int average_qual
+        Boolean disable_adapter_trimming
         Boolean output_fastps_cleaned_fastqs
         
         # compute setup
@@ -54,7 +65,7 @@ task main {
     parameter_meta {
         average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement"
         disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic"
-        #output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them. fastp will generate cleaned fastqs no matter what, so setting this to false will only save you on storage and delocalization costs."
+        output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them. fastp will generate cleaned fastqs no matter what, so setting this to false will only save you on storage and delocalization costs."
     }
     
     Int diskSize = addldisk + ceil(2*size(fastq1, "GB"))
