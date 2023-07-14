@@ -41,6 +41,8 @@ workflow TBfastProfiler {
         File fastp_txt = main.fastp_txt
         String samp_resistance = main.samp_resistance
         String samp_strain = main.samp_strain
+        File tbprofiler_json = main.tbprofiler_json
+        File tbprofiler_txt = main.tbprofiler_txt
     }
 }
 
