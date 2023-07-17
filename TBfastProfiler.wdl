@@ -97,9 +97,15 @@ task main {
     import json
     with open("~{sample_name}_fastp.json", "r") as fastpJSON:
         fastp = json.load(fastpJSON)
-    with open("fastp_summary.txt", "w") as outfile:
+    with open("~{sample_name}_fastp.txt", "w") as outfile:
         for keys, values in fastp["summary"]["before_filtering"].items():
             outfile.write(f"{keys}\t{values}\n")
+        if "~{output_fastps_cleaned_fastqs}" == "true":
+            outfile.write("after fastp cleaned the fastqs:\n")
+            for keys, values in fastp["summary"]["after_filtering"].items():
+                outfile.write(f"{keys}\t{values}\n")
+        else:
+            outfile.write("fastp cleaning was skipped, so the above represent the final result of these fastqs.")
     with open("q30.txt", "w") as q30_rate: q30_rate.write(str(fastp["summary"]["before_filtering"]["q30_rate"]))
     with open("total_reads.txt", "w") as read_count: read_count.write(str(fastp["summary"]["before_filtering"]["total_reads"]))              
     
@@ -137,7 +143,7 @@ task main {
         # reports as files
         File fastp_html = glob("*_fastp.html")[0]
         File fastp_json = glob("*_fastp.json")[0]
-        File fastp_txt  = "fastp_summary.txt"
+        File fastp_txt  = glob("*_fastp.txt")[0] # BEFORE filtering
         File tbprofiler_json = "results/~{sample_name}.results.json"
         File tbprofiler_txt = "results/~{sample_name}.results.txt"
         
