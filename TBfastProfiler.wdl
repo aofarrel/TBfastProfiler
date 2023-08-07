@@ -1,5 +1,7 @@
 version 1.0
 
+import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/v1.0.1/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
+
 workflow TBfastProfiler {
     input {
         File fastq1
@@ -8,6 +10,7 @@ workflow TBfastProfiler {
         Boolean disable_adapter_trimming = true
         Boolean output_fastps_cleaned_fastqs = false
         Float q30_cutoff
+        Int warn_if_below_this_depth = 10
     }
     
     parameter_meta {
@@ -15,6 +18,7 @@ workflow TBfastProfiler {
         disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic."
         output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them to save on storage and delocalization costs."
         q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered failing (did_this_sample_pass output will be false)."
+        warn_if_below_this_depth: "Mutations below this depth will be flagged as low-depth in the Laboratorian report. Does not affect TBProfiler JSON nor any cleaning of FASTQs."
     }
     
     call main {
@@ -24,6 +28,15 @@ workflow TBfastProfiler {
             average_qual = average_qual,
             disable_adapter_trimming = disable_adapter_trimming,
             output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs,
+    }
+    
+    call tbprof_parser.tbprofiler_output_parsing as csv_maker {
+        input:
+            json = main.tbprofiler_json,
+            output_seq_method_type = "DEBUG",
+            operator = "DEBUG",
+            samplename = main.samp_name,
+            min_depth = warn_if_below_this_depth
     }
     
     # silly workaround to avoid errors with WDL getting made about declaring the same variable multiple times
@@ -43,6 +56,11 @@ workflow TBfastProfiler {
         String samp_strain = main.samp_strain
         File tbprofiler_json = main.tbprofiler_json
         File tbprofiler_txt = main.tbprofiler_txt
+        
+        # CSVs for other tools
+        File tbprofiler_looker_csv = csv_maker.tbprofiler_looker_csv
+        File tbprofiler_laboratorian_report_csv = csv_maker.tbprofiler_laboratorian_report_csv
+        File tbprofiler_lims_report_csv = csv_maker.tbprofiler_lims_report_csv
     }
 }
 
@@ -161,5 +179,8 @@ task main {
         String samp_resistance = "~{sample_name}\t" + read_string("resistance.txt")
         String samp_strain = "~{sample_name}\t" + read_string("strain.txt")
         String samp_total_reads = "~{sample_name}\t" + read_string("total_reads.txt")
+        
+        # needed for tbprof_parser 
+        String samp_name = sample_name
     }
 }
