@@ -1,5 +1,7 @@
 version 1.0
 
+import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/v1.0.1/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
+
 workflow TBfastProfiler {
     input {
         File fastq1
@@ -26,6 +28,14 @@ workflow TBfastProfiler {
             output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs,
     }
     
+    call tbprof_parser.tbprofiler_output_parsing as csv_maker {
+        input:
+            json = main.tbprofiler_json,
+            output_seq_method_type = "DEBUG",
+            operator = "DEBUG",
+            samplename = main.samp_name
+    }
+    
     # silly workaround to avoid errors with WDL getting made about declaring the same variable multiple times
     # (when what we actually want to do is change it if something is true)
     Boolean always_false = false
@@ -43,6 +53,9 @@ workflow TBfastProfiler {
         String samp_strain = main.samp_strain
         File tbprofiler_json = main.tbprofiler_json
         File tbprofiler_txt = main.tbprofiler_txt
+        File tbprofiler_looker_csv = csv_maker.tbprofiler_looker_csv
+        File tbprofiler_laboratorian_report_csv = csv_maker.tbprofiler_laboratorian_report_csv
+        File tbprofiler_lims_report_csv = csv_maker.tbprofiler_lims_report_csv
     }
 }
 
@@ -161,5 +174,8 @@ task main {
         String samp_resistance = "~{sample_name}\t" + read_string("resistance.txt")
         String samp_strain = "~{sample_name}\t" + read_string("strain.txt")
         String samp_total_reads = "~{sample_name}\t" + read_string("total_reads.txt")
+        
+        # needed for tbprof_parser 
+        String samp_name = sample_name
     }
 }
