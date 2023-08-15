@@ -39,18 +39,24 @@ workflow TBfastProfiler {
             min_depth = warn_if_below_this_depth
     }
     
-    # silly workaround to avoid errors with WDL getting made about declaring the same variable multiple times
-    # (when what we actually want to do is change it if something is true)
-    Boolean always_false = false
+    
+    String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV"
     if(main.percent_above_q30 > q30_cutoff) {
-        Boolean passed_q30 = true
+        String passed_q30 = "PASS"
     }
-    Boolean outcome = select_first([passed_q30, always_false])
+    if(!(main.percent_above_q30 > q30_cutoff)) {
+        String failed_q30 = "EARLYQC_NOT_ENOUGH_OVER_Q30"
+    }
+    
+    # NOTE: if we filter samples by more than just q30 later, put all failures together,
+    # but likely only need one passed fallback
+    # eg: select_first([failed_q30, failed_median, passed_q30, fallback])
+    String this_samples_status = select_first([failed_q30, passed_q30, fallback])
     
     output {
         File? cleaned_fastq1 = main.very_clean_fastq1
         File? cleaned_fastq2 = main.very_clean_fastq2
-        Boolean did_this_sample_pass = outcome
+        String pass_or_errorcode = this_samples_status
         File fastp_txt = main.fastp_txt
         String samp_resistance = main.samp_resistance
         String samp_strain = main.samp_strain
