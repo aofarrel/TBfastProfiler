@@ -8,16 +8,18 @@ workflow TBfastProfiler {
         File fastq2
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
-        Boolean output_fastps_cleaned_fastqs = false
+        Boolean use_fastps_cleaned_fastqs = false
         Float q30_cutoff
         Int warn_if_below_this_depth = 10
     }
     
     parameter_meta {
-        average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement. Independent of q30_cutoff."
-        disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic."
-        output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them to save on storage and delocalization costs."
-        q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered failing (did_this_sample_pass output will be false)."
+        fastq1: "This sample's forward read"
+        fastq2: "This sample's reverse read"
+        average_qual: "If one read's average quality score < avg_qual, then this read/pair (NOT the whole sample) is discarded. 0 means no requirement. Independent of q30_cutoff."
+        disable_adapter_trimming: "Disable trimming adapters; use this if your fastqs already went through trimmomatic."
+        use_fastps_cleaned_fastqs: "If true, use fastps' cleaned fastqs for TBProfiler and output those cleaned fastqs as task-level outputs. If false, cleaned fastqs will be thrown out and TBProfiler will run on the fastqs you input."
+        q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered a failure. Independent of average_qual."
         warn_if_below_this_depth: "Mutations below this depth will be flagged as low-depth in the Laboratorian report. Does not affect TBProfiler JSON nor any cleaning of FASTQs."
     }
     
@@ -27,7 +29,7 @@ workflow TBfastProfiler {
             fastq2 = fastq2,
             average_qual = average_qual,
             disable_adapter_trimming = disable_adapter_trimming,
-            output_fastps_cleaned_fastqs = output_fastps_cleaned_fastqs,
+            use_fastps_cleaned_fastqs = use_fastps_cleaned_fastqs,
     }
     
     call tbprof_parser.tbprofiler_output_parsing as csv_maker {
@@ -78,7 +80,7 @@ task main {
         # fastp options
         Int average_qual
         Boolean disable_adapter_trimming
-        Boolean output_fastps_cleaned_fastqs
+        Boolean use_fastps_cleaned_fastqs
         
         # compute setup
         Int addldisk = 15
@@ -91,7 +93,7 @@ task main {
     parameter_meta {
         average_qual: "If one read's average quality score < avg_qual, then this read/pair is discarded. 0 means no requirement"
         disable_adapter_trimming: "Disable trimming adapters; use this if your reads already went through trimmomatic"
-        output_fastps_cleaned_fastqs: "[WDL only] If true, output fastps' cleaned fastqs, otherwise ignore them. fastp will generate cleaned fastqs no matter what, so setting this to false will only save you on storage and delocalization costs."
+        use_fastps_cleaned_fastqs: "[WDL only] If true, use fastps' cleaned fastqs for TBProfiler and output those cleaned fastqs as task-level outputs. If false, cleaned fastqs will be thrown out and TBProfiler will run on the fastqs you input."
     }
     
     Int diskSize = addldisk + ceil(2*size(fastq1, "GB"))
@@ -124,7 +126,7 @@ task main {
     with open("~{sample_name}_fastp.txt", "w") as outfile:
         for keys, values in fastp["summary"]["before_filtering"].items():
             outfile.write(f"{keys}\t{values}\n")
-        if "~{output_fastps_cleaned_fastqs}" == "true":
+        if "~{use_fastps_cleaned_fastqs}" == "true":
             outfile.write("after fastp cleaned the fastqs:\n")
             for keys, values in fastp["summary"]["after_filtering"].items():
                 outfile.write(f"{keys}\t{values}\n")
@@ -134,7 +136,7 @@ task main {
     with open("total_reads.txt", "w") as read_count: read_count.write(str(fastp["summary"]["before_filtering"]["total_reads"]))              
     
     # delete fastp cleaned fastqs if we dont want them to save on delocalization time
-    if "~{output_fastps_cleaned_fastqs}" == "false":
+    if "~{use_fastps_cleaned_fastqs}" == "false":
         os.remove("~{sample_name}_fastp_1.fq")
         os.remove("~{sample_name}_fastp_2.fq")
     
@@ -143,7 +145,12 @@ task main {
 
     # tb profiler
     start=$SECONDS
-    tb-profiler profile --read1 ~{fastq1} --read2 ~{fastq2} --prefix ~{sample_name} --txt
+    if [ "~{use_fastps_cleaned_fastqs}" == "false" ]
+    then
+        tb-profiler profile --read1 ~{fastq1} --read2 ~{fastq2} --prefix ~{sample_name} --txt
+    else
+        tb-profiler profile --read1 "~{sample_name}_fastp_1.fq" --read2 "~{sample_name}_fastp_2.fq" --prefix ~{sample_name} --txt
+    fi
 
     # parse tbprofiler output (from the textfile outut, since JSON parsing pains my soul)
     sed -n '11p' results/~{sample_name}.results.txt | sed -r 's/^Strain: //' >> strain.txt
