@@ -8,6 +8,7 @@ workflow TBfastProfiler {
         File fastq2
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
+        String? operator
         Boolean use_fastps_cleaned_fastqs = false
         Float q30_cutoff
         Int warn_if_below_this_depth = 10
@@ -35,8 +36,8 @@ workflow TBfastProfiler {
     call tbprof_parser.tbprofiler_output_parsing as csv_maker {
         input:
             json = main.tbprofiler_json,
-            output_seq_method_type = "DEBUG",
-            operator = "DEBUG",
+            output_seq_method_type = "WGS",
+            operator = select_first([operator, "operator_not_filled_in"]),
             samplename = main.samp_name,
             min_depth = warn_if_below_this_depth
     }
