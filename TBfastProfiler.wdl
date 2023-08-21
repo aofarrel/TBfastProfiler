@@ -1,6 +1,6 @@
 version 1.0
 
-import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/v1.0.1/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
+import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/im-tbprofiler/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
 
 workflow TBfastProfiler {
     input {
