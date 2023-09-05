@@ -1,5 +1,5 @@
 version 1.0
-
+import "../public_health_bioinformatics/tasks/species_typing/task_tbprofiler.wdl" as tbprof
 import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/v1.0.1/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
 
 workflow TBfastProfiler {
@@ -10,7 +10,7 @@ workflow TBfastProfiler {
         Boolean disable_adapter_trimming = true
         String? operator
         Boolean use_fastps_cleaned_fastqs = false
-        Float q30_cutoff
+        Float q30_cutoff = 30
         Int warn_if_below_this_depth = 10
     }
     
@@ -24,30 +24,32 @@ workflow TBfastProfiler {
         warn_if_below_this_depth: "Mutations below this depth will be flagged as low-depth in the Laboratorian report. Does not affect TBProfiler JSON nor any cleaning of FASTQs."
     }
     
-    call main {
+    call tbprof.tbprofiler as profiler {
         input:
-            fastq1 = fastq1,
-            fastq2 = fastq2,
-            average_qual = average_qual,
-            disable_adapter_trimming = disable_adapter_trimming,
-            use_fastps_cleaned_fastqs = use_fastps_cleaned_fastqs,
+            read1 = fastq1,
+            read2 = fastq2,
+            samplename = "SAMEA11744634"
+            #average_qual = average_qual,
+            #disable_adapter_trimming = disable_adapter_trimming,
+            #use_fastps_cleaned_fastqs = use_fastps_cleaned_fastqs,
     }
     
     call tbprof_parser.tbprofiler_output_parsing as csv_maker {
         input:
-            json = main.tbprofiler_json,
+            json = profiler.tbprofiler_output_json,
             output_seq_method_type = "WGS",
             operator = select_first([operator, "operator_not_filled_in"]),
-            samplename = main.samp_name,
+            #samplename = main.samp_name,
+            samplename = "SAMEA11744634",
             min_depth = warn_if_below_this_depth
     }
     
     
     String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV"
-    if(main.percent_above_q30 > q30_cutoff) {
+    if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
         String passed_q30 = "PASS"
     }
-    if(!(main.percent_above_q30 > q30_cutoff)) {
+    if(!(profiler.tbprofiler_pct_reads_mapped > q30_cutoff)) {
         String failed_q30 = "EARLYQC_NOT_ENOUGH_OVER_Q30"
     }
     
@@ -57,14 +59,17 @@ workflow TBfastProfiler {
     String this_samples_status = select_first([failed_q30, passed_q30, fallback])
     
     output {
-        File? cleaned_fastq1 = main.very_clean_fastq1
-        File? cleaned_fastq2 = main.very_clean_fastq2
-        String pass_or_errorcode = this_samples_status
-        File fastp_txt = main.fastp_txt
-        String samp_resistance = main.samp_resistance
-        String samp_strain = main.samp_strain
-        File tbprofiler_json = main.tbprofiler_json
-        File tbprofiler_txt = main.tbprofiler_txt
+        #File? cleaned_fastq1 = main.very_clean_fastq1
+        #File? cleaned_fastq2 = main.very_clean_fastq2
+        #String pass_or_errorcode = this_samples_status
+        #File fastp_txt = main.fastp_txt
+        #String samp_resistance = main.samp_resistance
+        #String samp_strain = main.samp_strain
+        #File tbprofiler_json = main.tbprofiler_json
+        #File tbprofiler_txt = main.tbprofiler_txt
+        Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
+        Int median_coverage = profiler.tbprofiler_median_coverage 
+        
         
         # CSVs for other tools
         File tbprofiler_looker_csv = csv_maker.tbprofiler_looker_csv
