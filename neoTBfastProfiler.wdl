@@ -1,8 +1,7 @@
 version 1.0
 import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/main/fastp.wdl" as fashtp
-import "../public_health_bioinformatics/tasks/species_typing/task_tbprofiler.wdl" as tbprof
-import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/im-tbprofiler/tasks/species_typing/task_tb_gene_coverage.wdl" as tbprof_gene_coverage
-import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/im-tbprofiler/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
+import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbprofiler.wdl" as tbprof
+import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbp_parser.wdl" as tbprof_parser
 
 workflow TBfastProfiler {
     input {
@@ -42,20 +41,14 @@ workflow TBfastProfiler {
             samplename = fastp.sample_name
     }
     
-    call tbprof_gene_coverage.tb_gene_coverage as coverage {
+    call tbprof_parser.tbp_parser as csv_maker {
         input:
-            bamfile = profiler.tbprofiler_output_bam,
-            bamindex = profiler.tbprofiler_output_bai,
-            samplename = fastp.sample_name
-    }
-    
-    call tbprof_parser.tbprofiler_output_parsing as csv_maker {
-        input:
-            json = profiler.tbprofiler_output_json,
-            gene_coverage = coverage.tb_resistance_genes_percent_coverage,
-            output_seq_method_type = "WGS",
-            operator = select_first([operator, "operator_not_filled_in"]),
+            tbprofiler_bam = profiler.tbprofiler_output_bam,
+            tbprofiler_bai = profiler.tbprofiler_output_bai,
+            tbprofiler_json = profiler.tbprofiler_output_json,
             samplename = fastp.sample_name,
+            sequencing_method = "WGS",
+            operator = select_first([operator, "operator_not_filled_in"]),
             min_depth = warn_if_below_this_depth
     }
     
@@ -77,13 +70,13 @@ workflow TBfastProfiler {
         File? cleaned_fastq1 = fastp.very_clean_fastq1
         File? cleaned_fastq2 = fastp.very_clean_fastq2
         
-        
         # stats
         String pass_or_errorcode = this_samples_status
         String resistance = profiler.tbprofiler_dr_type
         String strain = profiler.tbprofiler_sub_lineage
         Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
-        Int median_coverage = profiler.tbprofiler_median_coverage 
+        Int median_coverage = profiler.tbprofiler_median_coverage
+        Float percent_coverage = csv_maker.tbp_parser_genome_percent_coverage
         
         # reports
         File fastp_txt = fastp.short_report
@@ -91,9 +84,11 @@ workflow TBfastProfiler {
         #File tbprofiler_txt = profiler.tbprofiler_txt # not in thiagen TBProfiler task
         
         # CSVs for other tools
-        File tbprofiler_looker_csv = csv_maker.tbprofiler_looker_csv
-        File tbprofiler_laboratorian_report_csv = csv_maker.tbprofiler_laboratorian_report_csv
-        File tbprofiler_lims_report_csv = csv_maker.tbprofiler_lims_report_csv
+        File tbprofiler_looker_csv = csv_maker.tbp_parser_looker_report_csv
+        File tbprofiler_laboratorian_report_csv = csv_maker.tbp_parser_laboratorian_report_csv
+        File tbprofiler_lims_report_csv = csv_maker.tbp_parser_lims_report_csv
+        File tbprofiler_coverage_report_csv = csv_maker.tbp_parser_coverage_report
+        
     }
 }
 
