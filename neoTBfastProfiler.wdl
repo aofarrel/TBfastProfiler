@@ -12,6 +12,7 @@ workflow TBfastProfiler {
         String? operator
         Boolean use_fastps_cleaned_fastqs = true
         Float q30_cutoff = 30
+        Boolean override_qc = false
         Int warn_if_below_this_depth = 10
     }
     
@@ -22,6 +23,7 @@ workflow TBfastProfiler {
         disable_adapter_trimming: "Disable trimming adapters; use this if your fastqs already went through trimmomatic."
         use_fastps_cleaned_fastqs: "If true, use fastps' cleaned fastqs for TBProfiler and output those cleaned fastqs as task-level outputs. If false, cleaned fastqs will be thrown out and TBProfiler will run on the fastqs you input."
         q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered a failure. Independent of average_qual."
+        override_qc: "If true, pass_or_errorcode will return PASS even if this sample failed QC."
         warn_if_below_this_depth: "Mutations below this depth will be flagged as low-depth in the Laboratorian report. Does not affect TBProfiler JSON nor any cleaning of FASTQs."
     }
     
@@ -52,19 +54,21 @@ workflow TBfastProfiler {
             min_depth = warn_if_below_this_depth
     }
     
-    
-    String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV"
+    if(override_qc) {
+        String override = "PASS"
+    }
+    if(!(profiler.tbprofiler_pct_reads_mapped > q30_cutoff)) {
+        String failed_q30 = "FASTPQC_NOT_ENOUGH_OVER_Q30"
+    }
     if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
         String passed_q30 = "PASS"
     }
-    if(!(profiler.tbprofiler_pct_reads_mapped > q30_cutoff)) {
-        String failed_q30 = "EARLYQC_NOT_ENOUGH_OVER_Q30"
-    }
+    String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV" # should never be a final workflow output
     
     # NOTE: if we filter samples by more than just q30 later, put all failures together,
     # but likely only need one passed fallback
     # eg: select_first([failed_q30, failed_median, passed_q30, fallback])
-    String this_samples_status = select_first([failed_q30, passed_q30, fallback])
+    String this_samples_status = select_first([override, failed_q30, passed_q30, fallback])
     
     output {
         File? cleaned_fastq1 = fastp.very_clean_fastq1
