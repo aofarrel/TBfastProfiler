@@ -1,5 +1,5 @@
 version 1.0
-import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/main/fastp.wdl" as fashtp
+import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/main/fastp_tasks.wdl" as fashtp
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbprofiler.wdl" as tbprof
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbp_parser.wdl" as tbprof_parser
 
@@ -7,13 +7,21 @@ workflow TBfastProfiler {
     input {
         File fastq1
         File fastq2
+        
+        # trimming reads
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
+        
+        # other
         String? operator
         Boolean use_fastps_cleaned_fastqs = true
-        Float q30_cutoff = 30
-        Boolean override_qc = false
         Int warn_if_below_this_depth = 10
+        
+        # qc cutoffs
+        Float q30_cutoff = 30
+        Float pct_mapped_cutoff = 0.98
+        Boolean override_qc = false
+        
     }
     
     parameter_meta {
@@ -33,7 +41,7 @@ workflow TBfastProfiler {
             fastq_2 = fastq2,
             average_qual = average_qual,
             disable_adaptor_trimming = disable_adapter_trimming,
-            use_fastps_cleaned_fastqs = use_fastps_cleaned_fastqs
+            output_cleaned_fastqs = use_fastps_cleaned_fastqs
     }
     
     call tbprof.tbprofiler as profiler {
@@ -57,18 +65,20 @@ workflow TBfastProfiler {
     if(override_qc) {
         String override = "PASS"
     }
-    if(!(profiler.tbprofiler_pct_reads_mapped > q30_cutoff)) {
-        String failed_q30 = "FASTPQC_NOT_ENOUGH_OVER_Q30"
+    if(!(fastp.percent_above_q30 > q30_cutoff)) {
+        String failed_q30 = "EARLYQC_NOT_ENOUGH_OVER_Q30"
     }
-    if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
-        String passed_q30 = "PASS"
+    if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
+        String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV"
+    }
+    if(fastp.percent_above_q30 > q30_cutoff) {
+        if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
+            String we_did_it = "PASS"
+        }
     }
     String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV" # should never be a final workflow output
     
-    # NOTE: if we filter samples by more than just q30 later, put all failures together,
-    # but likely only need one passed fallback
-    # eg: select_first([failed_q30, failed_median, passed_q30, fallback])
-    String this_samples_status = select_first([override, failed_q30, passed_q30, fallback])
+    String this_samples_status = select_first([override, failed_q30, failed_mapping, we_did_it, fallback])
     
     output {
         File? cleaned_fastq1 = fastp.very_clean_fastq1
