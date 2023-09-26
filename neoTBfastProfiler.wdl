@@ -1,5 +1,5 @@
 version 1.0
-import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/main/fastp_tasks.wdl" as fashtp
+import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/0.0.1/fastp_tasks.wdl" as fashtp
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbprofiler.wdl" as tbprof
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbp_parser.wdl" as tbprof_parser
 
