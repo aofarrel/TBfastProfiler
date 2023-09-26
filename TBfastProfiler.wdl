@@ -1,5 +1,4 @@
 version 1.0
-
 import "https://raw.githubusercontent.com/theiagen/public_health_bioinformatics/v1.0.1/tasks/species_typing/task_tbprofiler_output_parsing.wdl" as tbprof_parser
 
 workflow TBfastProfiler {
@@ -9,7 +8,7 @@ workflow TBfastProfiler {
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
         String? operator
-        Boolean use_fastps_cleaned_fastqs = false
+        Boolean use_fastps_cleaned_fastqs = true
         Float q30_cutoff
         Int warn_if_below_this_depth = 10
     }
