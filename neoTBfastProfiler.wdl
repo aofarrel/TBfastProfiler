@@ -82,14 +82,7 @@ workflow TBfastProfiler {
             String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")" #!StringCoercion
         }
     }
-    if(fastp.percent_above_q30 > q30_cutoff) {
-        if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
-            String we_did_it = "PASS"
-        }
-    }
-    String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV" # should never be a final workflow output
-    
-    String this_samples_status = select_first([override, failed_q30, failed_mapping, we_did_it, fallback])
+    String error_or_pass = select_first([override, failed_q30, failed_mapping, "PASS"])
     Array[String] warnings = select_all([warning_q30, warning_mapping])
     if(length(warnings) < 0) {
         Array[String] no_warnings = ["PASS"]
@@ -100,8 +93,8 @@ workflow TBfastProfiler {
         File? cleaned_fastq2 = fastp.very_clean_fastq2
         
         # stats
-        String pass_or_errorcode = this_samples_status
-        Array[String] pass_or_warnings = select_first([no_warnings, warnings])
+        String status_code = error_or_pass
+        Array[String] warning_codes = select_first([no_warnings, warnings])
         String resistance = profiler.tbprofiler_dr_type
         String strain = profiler.tbprofiler_sub_lineage
         Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
