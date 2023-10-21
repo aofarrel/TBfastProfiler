@@ -7,20 +7,22 @@ workflow TBfastProfiler {
     input {
         File fastq1
         File fastq2
+        String? operator
         
-        # trimming reads
+        # trimming/cleaning reads
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
-        
-        # other
-        String? operator
-        Boolean use_fastps_cleaned_fastqs = true
-        Int warn_if_below_this_depth = 10
         
         # qc cutoffs
         Float q30_cutoff = 30
         Float pct_mapped_cutoff = 0.98
-        Boolean override_qc = false
+        
+        # what should we do the bad stuff?
+        Boolean soft_all_qc = false
+        Boolean soft_q30 = true
+        Boolean soft_pct_mapped = false
+        Boolean use_fastps_cleaned_fastqs = true
+        Int warn_if_below_this_depth = 10
         
     }
     
@@ -31,7 +33,9 @@ workflow TBfastProfiler {
         disable_adapter_trimming: "Disable trimming adapters; use this if your fastqs already went through trimmomatic."
         use_fastps_cleaned_fastqs: "If true, use fastps' cleaned fastqs for TBProfiler and output those cleaned fastqs as task-level outputs. If false, cleaned fastqs will be thrown out and TBProfiler will run on the fastqs you input."
         q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered a failure. Independent of average_qual."
-        override_qc: "If true, pass_or_errorcode will return PASS even if this sample failed QC."
+        soft_all_qc: "If true, pass_or_errorcode will always return PASS. Effectively sets soft_q30 and soft_pct_mapped to true."
+        soft_q30: "If true, pass_or_errorcode will return PASS even if this sample failed the Q30 check. pass_or_warnings will still be set."
+        soft_pct_mapped: "If true, pass_or_errorcode will return PASS even if this sample failed the percent mapped check. pass_or_warnings will still be set."
         warn_if_below_this_depth: "Mutations below this depth will be flagged as low-depth in the Laboratorian report. Does not affect TBProfiler JSON nor any cleaning of FASTQs."
     }
     
@@ -62,31 +66,35 @@ workflow TBfastProfiler {
             min_depth = warn_if_below_this_depth
     }
     
-    if(override_qc) {
+    if(soft_all_qc) {
         String override = "PASS"
     }
-    # TODO: IS THIS FILTER WORKING AS INTENDED?
+    
     if(!(fastp.percent_above_q30 > q30_cutoff)) {
-        String failed_q30 = "EARLYQC_ONLY_" + fastp.percent_above_q30 + "_ABOVE_Q30_(MIN_" + q30_cutoff + ")"
-    }
-    if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
-        String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")"
-    }
-    if(fastp.percent_above_q30 > q30_cutoff) {
-        if(profiler.tbprofiler_pct_reads_mapped > q30_cutoff) {
-            String we_did_it = "PASS"
+        String warning_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+        if(!(soft_q30)) {
+            String failed_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         }
     }
-    String fallback = "WORKFLOW_ERROR_REPORT_TO_DEV" # should never be a final workflow output
-    
-    String this_samples_status = select_first([override, failed_q30, failed_mapping, we_did_it, fallback])
+    if(!(profiler.tbprofiler_pct_reads_mapped > (100 - pct_mapped_cutoff))) {
+        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
+        if(!(soft_pct_mapped)) {
+            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
+        }
+    }
+    String error_or_pass = select_first([override, failed_q30, failed_mapping, "PASS"])
+    Array[String] warnings = select_all([warning_q30, warning_mapping])
+    if(length(warnings) < 0) {
+        Array[String] no_warnings = ["PASS"]
+    }
     
     output {
         File? cleaned_fastq1 = fastp.very_clean_fastq1
         File? cleaned_fastq2 = fastp.very_clean_fastq2
         
         # stats
-        String pass_or_errorcode = this_samples_status
+        String status_code = error_or_pass
+        Array[String] warning_codes = select_first([no_warnings, warnings])
         String resistance = profiler.tbprofiler_dr_type
         String strain = profiler.tbprofiler_sub_lineage
         Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
