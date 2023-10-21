@@ -71,15 +71,15 @@ workflow TBfastProfiler {
     }
     
     if(!(fastp.percent_above_q30 > q30_cutoff)) {
-        String warning_q30 = "EARLYQC_ONLY_" + fastp.percent_above_q30 + "_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+        String warning_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         if(!(soft_q30)) {
-            String failed_q30 = "EARLYQC_ONLY_" + fastp.percent_above_q30 + "_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+            String failed_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         }
     }
     if(!(profiler.tbprofiler_pct_reads_mapped > (100 - pct_mapped_cutoff))) {
-        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")" #!StringCoercion
+        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
         if(!(soft_pct_mapped)) {
-            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")" #!StringCoercion
+            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
         }
     }
     String error_or_pass = select_first([override, failed_q30, failed_mapping, "PASS"])
