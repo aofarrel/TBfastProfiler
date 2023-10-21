@@ -69,14 +69,14 @@ workflow TBfastProfiler {
     if(soft_all_qc) {
         String override = "PASS"
     }
-    # TODO: IS THIS FILTER WORKING AS INTENDED?
+    
     if(!(fastp.percent_above_q30 > q30_cutoff)) {
         String warning_q30 = "EARLYQC_ONLY_" + fastp.percent_above_q30 + "_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         if(!(soft_q30)) {
             String failed_q30 = "EARLYQC_ONLY_" + fastp.percent_above_q30 + "_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         }
     }
-    if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
+    if(!(profiler.tbprofiler_pct_reads_mapped > (100 - pct_mapped_cutoff))) {
         String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")" #!StringCoercion
         if(!(soft_pct_mapped)) {
             String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_TO_H37RV_(MIN" + pct_mapped_cutoff + ")" #!StringCoercion
