@@ -1,5 +1,5 @@
 version 1.0
-import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/0.0.1/fastp_tasks.wdl" as fashtp
+import "https://raw.githubusercontent.com/aofarrel/fastp-wdl/main/fastp_tasks.wdl" as fashtp
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbprofiler.wdl" as tbprof
 import "https://raw.githubusercontent.com/aofarrel/public_health_bioinformatics/smw-tbprofiler-dev/tasks/species_typing/task_tbp_parser.wdl" as tbprof_parser
 
@@ -17,7 +17,7 @@ workflow TBfastProfiler {
         Int q30_cutoff = 30
         Int pct_mapped_cutoff = 98
         
-        # what should we do the bad stuff?
+        # other options
         Boolean soft_all_qc = false
         Boolean soft_q30 = true
         Boolean soft_pct_mapped = false
@@ -70,10 +70,10 @@ workflow TBfastProfiler {
         String override = "PASS"
     }
     
-    if(!(fastp.percent_above_q30 > q30_cutoff)) {
-        String warning_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+    if(!(fastp.out_percent_above_q30 > q30_cutoff)) {
+        String warning_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         if(!(soft_q30)) {
-            String failed_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+            String failed_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         }
     }
     if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
@@ -100,7 +100,9 @@ workflow TBfastProfiler {
         Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
         Int median_coverage = profiler.tbprofiler_median_coverage
         Float genome_pct_coverage = csv_maker.tbp_parser_genome_percent_coverage
-        Float pct_above_q30 = fastp.percent_above_q30
+        Float pct_above_q30 = fastp.out_percent_above_q30
+        Float pct_above_q20 = fastp.out_percent_above_q20
+        Int total_reads = fastp.out_total_reads
         
         # reports
         File fastp_txt = fastp.short_report
