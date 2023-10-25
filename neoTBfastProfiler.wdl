@@ -14,8 +14,9 @@ workflow TBfastProfiler {
         Boolean disable_adapter_trimming = true
         
         # qc cutoffs
-        Int q30_cutoff = 30
-        Int pct_mapped_cutoff = 98
+        # TODO: we can probably make these ints
+        Float q30_cutoff = 30
+        Float pct_mapped_cutoff = 98
         
         # other options
         Boolean soft_all_qc = false
