@@ -14,8 +14,8 @@ workflow TBfastProfiler {
         Boolean disable_adapter_trimming = true
         
         # qc cutoffs
-        Float q30_cutoff = 30
-        Float pct_mapped_cutoff = 0.98
+        Int q30_cutoff = 30
+        Int pct_mapped_cutoff = 98
         
         # what should we do the bad stuff?
         Boolean soft_all_qc = false
@@ -76,10 +76,10 @@ workflow TBfastProfiler {
             String failed_q30 = "EARLYQC_" + (fastp.percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
         }
     }
-    if(!(profiler.tbprofiler_pct_reads_mapped > (100 - pct_mapped_cutoff))) {
-        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
+    if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
+        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + pct_mapped_cutoff + ")" #!StringCoercion
         if(!(soft_pct_mapped)) {
-            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + (100-pct_mapped_cutoff) + ")" #!StringCoercion
+            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + pct_mapped_cutoff + ")" #!StringCoercion
         }
     }
     String error_or_pass = select_first([override, failed_q30, failed_mapping, "PASS"])
@@ -99,7 +99,8 @@ workflow TBfastProfiler {
         String strain = profiler.tbprofiler_sub_lineage
         Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
         Int median_coverage = profiler.tbprofiler_median_coverage
-        Float percent_coverage = csv_maker.tbp_parser_genome_percent_coverage
+        Float genome_pct_coverage = csv_maker.tbp_parser_genome_percent_coverage
+        Float pct_above_q30 = fastp.percent_above_q30
         
         # reports
         File fastp_txt = fastp.short_report
