@@ -98,11 +98,11 @@ workflow TBfastProfiler {
         Array[String] warning_codes = select_first([no_warnings, warnings])
         String resistance = profiler.tbprofiler_dr_type
         String strain = profiler.tbprofiler_sub_lineage
-        Float reads_mapped = profiler.tbprofiler_pct_reads_mapped
         Int median_coverage = profiler.tbprofiler_median_coverage
-        Float genome_pct_coverage = csv_maker.tbp_parser_genome_percent_coverage
-        Float pct_above_q30 = fastp.out_percent_above_q30
-        Float pct_above_q20 = fastp.out_percent_above_q20
+        Float pct_reads_mapped = profiler.tbprofiler_pct_reads_mapped
+        Float pct_genome_covered = csv_maker.tbp_parser_genome_percent_coverage
+        Float pct_above_q30 = fastp.out_percent_above_q30 * 100
+        Float pct_above_q20 = fastp.out_percent_above_q20 * 100
         Int total_reads = fastp.out_total_reads
         
         # reports
