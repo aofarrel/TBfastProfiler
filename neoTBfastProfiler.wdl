@@ -9,14 +9,13 @@ workflow TBfastProfiler {
         File fastq2
         String? operator
         
-        # trimming/cleaning reads
+        # trimming/cleaning; ie discarding PARTS of a sample
         Int average_qual = 30
         Boolean disable_adapter_trimming = true
         
-        # qc cutoffs
-        # TODO: we can probably make these ints
-        Float q30_cutoff = 30
-        Float pct_mapped_cutoff = 98
+        # qc cutoffs; ie discarding THE WHOLE SAMPLE
+        Int minimum_q30_rate = 30
+        Int minimum_pct_mapped = 98
         
         # other options
         Boolean soft_all_qc = false
@@ -30,10 +29,11 @@ workflow TBfastProfiler {
     parameter_meta {
         fastq1: "This sample's forward read"
         fastq2: "This sample's reverse read"
-        average_qual: "If one read's average quality score < avg_qual, then this read/pair (NOT the whole sample) is discarded. 0 means no requirement. Independent of q30_cutoff."
+        average_qual: "If one read's average quality score < avg_qual, then this read/pair (NOT the whole sample) is discarded. 0 means no requirement. Independent of minimum_q30_rate."
         disable_adapter_trimming: "Disable trimming adapters; use this if your fastqs already went through trimmomatic."
         use_fastps_cleaned_fastqs: "If true, use fastps' cleaned fastqs for TBProfiler and output those cleaned fastqs as task-level outputs. If false, cleaned fastqs will be thrown out and TBProfiler will run on the fastqs you input."
-        q30_cutoff: "If a sample's average quality score < q30_cutoff, then this sample is considered a failure. Independent of average_qual."
+        minimum_q30_rate: "If a sample's q30 rate < minimum_q30_rate, then this entire sample is considered a failure. ex: If minimum_q30_rate is 10 and more than 10 percent of the sample's reads are below q30, the sample fails. Independent of average_qual."
+        minimum_pct_mapped: "If less than this percent of a sample maps to the TB ref genome, then this entire sample is considered a failure."
         soft_all_qc: "If true, pass_or_errorcode will always return PASS. Effectively sets soft_q30 and soft_pct_mapped to true."
         soft_q30: "If true, pass_or_errorcode will return PASS even if this sample failed the Q30 check. pass_or_warnings will still be set."
         soft_pct_mapped: "If true, pass_or_errorcode will return PASS even if this sample failed the percent mapped check. pass_or_warnings will still be set."
@@ -71,16 +71,16 @@ workflow TBfastProfiler {
         String override = "PASS"
     }
     
-    if(!(fastp.out_percent_above_q30 > q30_cutoff)) {
-        String warning_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+    if(!(fastp.out_percent_above_q30 > minimum_q30_rate)) {
+        String warning_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + minimum_q30_rate + ")" #!StringCoercion
         if(!(soft_q30)) {
-            String failed_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + q30_cutoff + ")" #!StringCoercion
+            String failed_q30 = "EARLYQC_" + (fastp.out_percent_above_q30*100) + "_PCT_ABOVE_Q30_(MIN_" + minimum_q30_rate + ")" #!StringCoercion
         }
     }
-    if(!(profiler.tbprofiler_pct_reads_mapped > pct_mapped_cutoff)) {
-        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + pct_mapped_cutoff + ")" #!StringCoercion
+    if(!(profiler.tbprofiler_pct_reads_mapped > minimum_pct_mapped)) {
+        String warning_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + minimum_pct_mapped + ")" #!StringCoercion
         if(!(soft_pct_mapped)) {
-            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + pct_mapped_cutoff + ")" #!StringCoercion
+            String failed_mapping = "EARLYQC_" + profiler.tbprofiler_pct_reads_mapped + "_PCT_MAPPED_(MIN_" + minimum_pct_mapped + ")" #!StringCoercion
         }
     }
     String error_or_pass = select_first([override, failed_q30, failed_mapping, "PASS"])
